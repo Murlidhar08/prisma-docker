@@ -1,49 +1,61 @@
 services:
-  # 1. Start database service
+  # 1. Database Service (PostgreSQL)
   database:
     image: postgres:15
     container_name: postgres_db
     restart: always
-    env_file: [.env.pod]
+    env_file: .env.pod
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports: ["${POSTGRES_EXTERNAL_PORT}:${POSTGRES_PORT}"]
-    networks: [next-network]
+    ports:
+      - "${POSTGRES_EXTERNAL_PORT}:${POSTGRES_PORT}"
+    networks:
+      - next-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 2s
       retries: 20
 
-  # 2. Start migration service and update database
+  # 2. Migration Service (Prisma)
   migration:
-    build: { context: ., target: builder }
+    build:
+      context: .
+      target: builder
     container_name: migration_service
     command: npx prisma migrate deploy
     depends_on:
-      database: { condition: service_healthy }
-    env_file: [.env.pod]
+      database:
+        condition: service_healthy
+    env_file: .env.pod
     environment:
       DATABASE_URL: ${DATABASE_URL}
-    networks: [next-network]
+    networks:
+      - next-network
 
-  # 3. Start Next.js application service
+  # 3. Next.js Application Service
   next_app:
-    build: { context: ., target: runner }
+    build:
+      context: .
+      target: runner
     container_name: nextjs_app
     restart: always
     depends_on:
-      database: { condition: service_healthy }
-      migration: { condition: service_completed_successfully }
-    ports: ["3000:3000"]
-    env_file: [.env.pod]
+      database:
+        condition: service_healthy
+      migration:
+        condition: service_completed_successfully
+    ports:
+      - "3000:3000"
+    env_file: .env.pod
     environment:
       DATABASE_URL: ${DATABASE_URL}
-    networks: [next-network]
+    networks:
+      - next-network
 
-  # 4. Start prisma studio service
+  # 4. Prisma Studio Service
   prisma-studio:
     image: node:24.15.0-alpine
     container_name: prisma_studio
@@ -53,13 +65,13 @@ services:
     command: npx prisma studio --port 5555 --browser none
     ports:
       - "5555:5555"
-    env_file:
-      - .env.pod
-    environment: 
+    env_file: .env.pod
+    environment:
       DATABASE_URL: ${DATABASE_URL}
-    networks: [next-network]
-    depends_on: 
-      database: 
+    networks:
+      - next-network
+    depends_on:
+      database:
         condition: service_healthy
 
 networks:
