@@ -18,6 +18,8 @@ services:
       interval: 5s
       timeout: 2s
       retries: 20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
 
   # 2. Migration Service (Prisma)
   migration:
@@ -77,3 +79,6 @@ services:
 networks:
   next-network:
     name: next-network
+
+volumes:
+  postgres_data:
