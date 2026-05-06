@@ -2,6 +2,7 @@ import Image from "next/image";
 import ClientFetcher from "@/components/ClientFetcher";
 import ServerFetcher from "@/components/ServerFetcher";
 import ServerEnvInfo from "@/components/ServerEnvInfo";
+import DatabaseActions from "@/components/DatabaseActions";
 
 export default function Home() {
   return (
@@ -25,6 +26,7 @@ export default function Home() {
 
       <main className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-5xl">
         <ServerEnvInfo />
+        <DatabaseActions />
         <ClientFetcher />
         <ServerFetcher />
       </main>

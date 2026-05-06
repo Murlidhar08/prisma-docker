@@ -1,42 +1,52 @@
 services:
-  postgres_db:
+  # 1. Start database service
+  database:
     image: postgres:15
-    hostname: postgres_db
     container_name: postgres_db
     restart: always
-    env_file:
-      - .env.pod
+    env_file: [.env.pod]
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - '${POSTGRES_EXTERNAL_PORT}:${POSTGRES_PORT}'
-    networks:
-      - prisma-network
+    ports: ["${POSTGRES_EXTERNAL_PORT}:${POSTGRES_PORT}"]
+    networks: [next-network]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 2s
       retries: 20
 
-  api:
-    build: .
-    container_name: express_api
-    env_file:
-      - .env.pod
-    ports:
-      - "3000:3000"
+  # 2. Start migration service and update database
+  migration:
+    build: { context: ., target: builder }
+    container_name: migration_service
+    command: npx prisma migrate deploy
+    depends_on:
+      database: { condition: service_healthy }
+    env_file: [.env.pod]
     environment:
       DATABASE_URL: ${DATABASE_URL}
-    networks:
-      - prisma-network
-    depends_on:
-      postgres_db:
-        condition: service_healthy
+    networks: [next-network]
 
+  # 3. Start Next.js application service
+  next_app:
+    build: { context: ., target: runner }
+    container_name: nextjs_app
+    restart: always
+    depends_on:
+      database: { condition: service_healthy }
+      migration: { condition: service_completed_successfully }
+    ports: ["3000:3000"]
+    env_file: [.env.pod]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    networks: [next-network]
+
+  # 4. Start prisma studio service
   prisma-studio:
-    image: node:24.15.0
+    image: node:24.15.0-alpine
+    container_name: prisma_studio
     working_dir: /app
     volumes:
       - .:/app
@@ -47,12 +57,11 @@ services:
       - .env.pod
     environment: 
       DATABASE_URL: ${DATABASE_URL}
-    networks: 
-      - prisma-network
+    networks: [next-network]
     depends_on: 
-      postgres_db: 
+      database: 
         condition: service_healthy
 
 networks:
-  prisma-network:
-    name: prisma-network
+  next-network:
+    name: next-network
