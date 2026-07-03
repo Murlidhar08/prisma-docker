@@ -4,40 +4,21 @@ services:
     image: postgres:15
     container_name: postgres_db
     restart: always
-    env_file: .env.pod
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "${POSTGRES_EXTERNAL_PORT}:${POSTGRES_PORT}"
+      POSTGRES_DB: test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     networks:
       - next-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d test" ]
       interval: 5s
       timeout: 2s
       retries: 20
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # 2. Migration Service (Prisma)
-  migration:
-    build:
-      context: .
-      target: builder
-    container_name: migration_service
-    command: npx prisma migrate deploy
-    depends_on:
-      database:
-        condition: service_healthy
-    env_file: .env.pod
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-    networks:
-      - next-network
-
-  # 3. Next.js Application Service
+  # 2. Next.js Application Service
   next_app:
     build:
       context: .
@@ -47,17 +28,14 @@ services:
     depends_on:
       database:
         condition: service_healthy
-      migration:
-        condition: service_completed_successfully
     ports:
       - "3000:3000"
-    env_file: .env.pod
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: "postgresql://postgres:postgres@database:5432/test?schema=public"
     networks:
       - next-network
 
-  # 4. Prisma Studio Service
+  # 3. Prisma Studio Service
   prisma-studio:
     image: node:24.15.0-alpine
     container_name: prisma_studio
@@ -67,9 +45,8 @@ services:
     command: npx prisma studio --port 5555 --browser none
     ports:
       - "5555:5555"
-    env_file: .env.pod
     environment:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: "postgresql://postgres:postgres@database:5432/test?schema=public"
     networks:
       - next-network
     depends_on:

@@ -27,10 +27,16 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/generated ./generated
+COPY --from=builder /app/prisma.config.ts ./
+
+# Set up the startup script
+COPY bootstrap.sh /usr/local/bin/bootstrap.sh
+RUN chmod +x /usr/local/bin/bootstrap.sh
 
 EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
 # Logic: Generate prisma command then start next js application server
-CMD ["sh", "-c", "npx prisma generate && node server.js"]
+ENTRYPOINT ["bootstrap.sh"]
+CMD ["node", "server.js"]
